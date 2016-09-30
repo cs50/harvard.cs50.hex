@@ -18,6 +18,7 @@ define(function(require, exports, module) {
         var ui = imports.ui;
 
         var _ = require("lodash");
+        var basename = require("path").basename;
         var join = require("path").join;
 
         // no default extensions
@@ -293,9 +294,12 @@ define(function(require, exports, module) {
 
             plugin.on("documentLoad", function(e) {
                 var doc = e.doc;
+                var session = doc.getSession();
 
                 /**
                  * Updates editor's theme
+                 *
+                 * @param {object} e an object as passed to layout.themeChange's callback
                  */
                 function setTheme(e) {
                     // get document's tab
@@ -332,10 +336,34 @@ define(function(require, exports, module) {
                 }
 
                 // update editor's theme as IDE theme changes
-                layout.on("themeChange", setTheme, doc.getSession());
+                layout.on("themeChange", setTheme, session);
 
                 // set editor's theme initially
                 setTheme({ theme: settings.get("user/general/@skin") });
+
+
+                /**
+                 * Sets document's title and tooltip to filename and full path
+                 * respectively
+                 *
+                 * @param {object} e an object as passed to Tab.setPath's callback
+                 */
+                function setTitle(e) {
+                    // get document's path
+                    var path = doc.tab.path;
+
+                    // set document's title to filename
+                    doc.title = basename(path);
+
+                    // set tab-button's tooltip to full path
+                    doc.tooltip = path;
+                }
+
+                // set document's title initially
+                setTitle();
+
+                // handle when path changes (e.g., file renamed while open)
+                doc.tab.on("setPath", setTitle, session);
             });
 
             // handle when document receives focus
