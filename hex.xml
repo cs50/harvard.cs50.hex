@@ -1,0 +1,23 @@
+<a:application xmlns:a="http://ajax.org/2005/aml">
+    <a:vsplitbox id="parent" anchors="0 0 0 0">
+        <a:bar id="configs" class="cs50-hex-configs fakehbox aligncenter padding3" height="40">
+            <a:label>Bytes per row: </a:label>
+            <a:spinner id="rowBytes" defaultValue="16" min="1" max="256" realtime="true" />
+            <a:divider class="cs50-hex-divider" skin="c9-divider" />
+
+            <a:label>Bytes per column: </a:label>
+            <a:spinner id="colBytes" defaultValue="2" min="1" max="256" realtime="true" />
+            <a:divider class="cs50-hex-divider" skin="c9-divider" />
+
+            <a:label>Offset: </a:label>
+            <a:spinner id="offset" defaultValue="0" min="0" realtime="true" />
+            <a:divider class="cs50-hex-divider" skin="c9-divider" />
+
+            <a:button id="btnSet" class="btn-green" skin="btn-default-css3">Set</a:button>
+        </a:bar>
+
+        <a:bar flex="1">
+            <a:textarea class="cs50-hex-content" id="content" border="0" height="100%" width="100%" />
+        </a:bar>
+    </a:vsplitbox>
+</a:application>
