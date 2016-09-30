@@ -340,7 +340,8 @@ define(function(require, exports, module) {
 
             // handle when document receives focus
             plugin.on("documentActivate", function(e) {
-                if (xxdProc !== null)
+                // ensure path is set
+                if (!e.doc.tab.path)
                     return;
 
                 // update current document
