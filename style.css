@@ -7,6 +7,9 @@
     /* no need to handle dark (set correctly by default) */
     background-color: #f1f1f1;
 }
+.cs50-hex-configs.dark .spinner {
+    background-color: #181818;
+}
 
 /* hex content textarea */
 .cs50-hex-content {
