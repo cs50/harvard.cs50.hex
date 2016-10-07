@@ -1,5 +1,7 @@
 define(function(require, exports, module) {
-    main.consumes = ["c9", "menus", "Plugin", "tabManager", "tree", "ui"];
+    main.consumes = [
+        "c9", "dialog.error", "menus", "Plugin", "tabManager", "tree", "ui"
+    ];
     main.provides = ["harvard.cs50.openhex"];
 
     return main;
@@ -8,6 +10,7 @@ define(function(require, exports, module) {
         var c9 = imports.c9;
         var menus = imports.menus;
         var Plugin = imports.Plugin;
+        var showError = imports["dialog.error"];
         var tabManager = imports.tabManager;
         var tree = imports.tree;
         var ui = imports.ui;
@@ -31,15 +34,62 @@ define(function(require, exports, module) {
 
             // open selected files
             nodes.forEach(function(node, i) {
+                var tab;
+
+                // focus tab only if last to avoid multi xxd spawns
+                var focus = i === last;
+
                 // ensure selection is a file
                 if (!node.isFolder) {
+                    // ensure no hex tab is open for file
+                    var openInHex = tabManager.getTabs().some(function(t) {
+                        if (t.path === node.path && t.editorType === "hex") {
+                            tab = t;
+                            return true;
+                        }
+
+                        return false;
+                    });
+
+                    if (openInHex)
+                        return focus && tabManager.focusTab(tab);
+
+                    // find tab where file is open with other editor (if any)
+                    tab = tabManager.findTab(node.path);
+
+                    // handle when file is open with other editor
+                    if (tab) {
+                        // force-open file with hex in new tab
+                        // TODO fix forceNew and use it instead
+                        return tabManager.open({
+                            pane: tab.pane,
+                            tab: tab,
+                            editorType: "hex",
+                            focus: false,
+                            document: {
+                                meta: { cloned: true }
+                            }
+                        }, function(err, tab) {
+                            // handle errors
+                            if (err)
+                                return showError(err);
+
+                            if (tab) {
+                                tab.document.progress({ complete: true });
+
+                                // focus tab only if last one
+                                if (focus)
+                                    tabManager.focusTab(tab);
+                            }
+                        });
+                    }
+
+                    // open file with hex
                     tabManager.open({
                         path: node.path,
                         editorType: "hex",
-
-                        // avoid "multiple processes" error when opening multiple files (by activating the last one only)
-                        active: i === last,
-                        focus: i === last,
+                        active: focus,
+                        focus: focus,
                         noanim: noanim
                     });
                 }
