@@ -320,7 +320,7 @@ define(function(require, exports, module) {
              */
             function update(e) {
                 // if key pressed, ensure it's Enter
-                if (_.isObject(e) && e.keyCode !== 13)
+                if (_.isObject(e) && e.name === "keydown" && e.keyCode !== 13)
                     return;
 
                 // handle when no content has been set yet or configs have changed
