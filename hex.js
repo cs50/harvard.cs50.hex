@@ -91,8 +91,8 @@ define(function(require, exports, module) {
             var configElements = {};
             var content = null;
 
-            // xxd process object
-            var xxdProc = null;
+            // whether we're currently updating
+            var updating = false;
 
             // draw editor
             plugin.on("draw", function(e) {
@@ -298,13 +298,18 @@ define(function(require, exports, module) {
             }
 
             /**
-             * Resets configs and hex representation of current document
+             * Resets updating state, and possibly configs and hex representation
+             *
+             * @param {boolean} [all] whether to reset configs and hex representation
+             * for current document
              */
-            function reset() {
-                if (currentSession) {
+            function reset(all) {
+                if (all === true && currentSession) {
                     currentSession.hex.configElements = {};
                     currentSession.hex.content = "";
                 }
+
+                updating = false;
             }
 
             /**
@@ -320,9 +325,11 @@ define(function(require, exports, module) {
 
                 // handle when no content has been set yet or configs have changed
                 if (_.isEmpty(currSession.hex.content) || configChanged()) {
-                    // ensure only one xxd process running per editor instance
-                    if (xxdProc !== null)
+                    // ensure single sed and xxd processes are running per editor at a time
+                    if (updating === true)
                         return showError("Error starting hex conversion process");
+
+                    updating = true;
 
                     // get config values
                     var configs = getConfigs(_.isEmpty(currSession.hex.configElements));
@@ -333,39 +340,59 @@ define(function(require, exports, module) {
                     // cache configs into session
                     currSession.hex.configElements = configs.configElements;
 
-                    // launch xxd
-                    xxdProc = proc.spawn("xxd", {
-                        args: configs.args.concat(currSession.hex.path)
-                    }, function(err, process) {
+                    // launch sed to remove addresses
+                    proc.spawn("sed", {
+                        args: ["s/^.*:\\s*//g"]
+                    }, function (err, sed) {
                         if (err) {
-                            // empty content of current document
-                            currSession.hex.content = "";
-                            return showError(err);
+                            console.log(err);
+                            reset(true);
+
+                            // TODO show descriptive error message
+                            return;
                         }
 
-                        // buffer xxd's stdout
-                        process.stdout.on("data", function(chunk) {
-                            currSession.hex.content += chunk;
-                        });
-
-                        // render xxd's output
-                        process.stdout.on("end", function() {
-                            render();
-                        });
-
-                        // handle xxd errors
-                        process.on("error", function(err) {
+                        // handle sed errors
+                        sed.on("error", function(err) {
                             console.error(err);
+                            reset(true);
 
-                            // empty content of current document
-                            reset();
-                            showError("Error converting to hex");
+                            // TODO show descriptive error message
                         });
 
-                        // when xxd exists
-                        process.on("exit", function(code, signal) {
-                            // allow spawning xxd again for this editor
-                            xxdProc = null;
+                        // handle sed exit
+                        sed.on("exit", function(code) {
+                            if (code === 0)
+                                reset();
+                        });
+
+                        // launch xxd
+                        proc.spawn("xxd", {
+                            args: configs.args.concat(currSession.hex.path)
+                        }, function(err, xxd) {
+                            if (err) {
+                                console.log(err);
+                                reset(true);
+                                return showError("Error starting hex conversion process");
+                            }
+
+                            // handle xxd errors
+                            xxd.on("error", function(err) {
+                                console.error(err);
+                                reset(true);
+                                showError("Error converting to hex");
+                            });
+
+                            // pipe xxd's stdout into sed's stdin
+                            xxd.stdout.pipe(sed.stdin);
+
+                            // buffer sed's stdout
+                            sed.stdout.on("data", function(chunk) {
+                                currSession.hex.content += chunk;
+                            });
+
+                            // render hex representation
+                            sed.stdout.on("end", render);
                         });
                     });
                 }
