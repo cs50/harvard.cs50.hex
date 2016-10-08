@@ -27,6 +27,29 @@ define(function(require, exports, module) {
         // register editor
         var handle = editors.register("hex", "Hex", Hex, extensions);
 
+        /**
+         * Adds or removes class "dark" to or from AMLElement(s)
+         *
+         * @param {Array} elements an array of AMLElements
+         * @param {boolean} dark whether to add or remove class "dark"
+         */
+        handle.darken = function(elements, dark) {
+            if (_.isArray(elements) && _.isBoolean(dark)) {
+                elements.forEach(function(element) {
+                    var c = element.getAttribute("class");
+                    if (_.isString(c)) {
+                        var i = c.indexOf("dark");
+
+                        // add or remove "dark" class
+                        if (dark && i === -1)
+                            element.setAttribute("class", c.concat(" dark"));
+                        else if (i > -1)
+                            element.setAttribute("class", c.replace(/\sdark/, ""));
+                    }
+                });
+            }
+        }
+
         // whether CSS for the editor is inserted
         var cssInserted = false;
 
@@ -40,6 +63,17 @@ define(function(require, exports, module) {
 
             cssInserted = true;
             ui.insertCss(require("text!./style.css"), options.staticPrefix, handle);
+        };
+
+        /**
+         * Updates font size of an HTML element
+         *
+         * @param {HTMLElement} an HTML element
+         * @param {number} size the font size to set
+         */
+        handle.updateFontSize = function(element, size) {
+            if (_.isObject(element) && _.isObject(element.style))
+                element.style.fontSize = size + "px";
         };
 
         /**
@@ -60,82 +94,130 @@ define(function(require, exports, module) {
             // xxd process object
             var xxdProc = null;
 
+            // draw editor
             plugin.on("draw", function(e) {
                 // ensure CSS is inserted
                 handle.insertCss();
 
-                // draw editor
-                ui.insertMarkup(e.tab, require("text!./hex.xml"), plugin);
-
-                // get configs bar
-                plugin.getElement("configs", function(b) {
-                    bar = b;
+                // "Bytes per row" spinner
+                configElements.rowBytes = new ui.spinner({
+                    defaultValue: 16,
+                    min: 1,
+                    max: 256,
+                    realtime: true
                 });
 
-                // get content textarea
-                plugin.getElement("content", function(e) {
-                    content = e;
+                /**
+                 * @returns {string} xxd argument representation for row bytes config
+                 */
+                configElements.rowBytes.getArg = function(d) {
+                    return "-c".concat(
+                        d === true || !_.isNumber(configElements.rowBytes.value)
+                            ? configElements.rowBytes.defaultValue
+                            : configElements.rowBytes.value
+                    );
+                };
 
+                // "Bytes per column" spinner
+                configElements.colBytes = new ui.spinner({
+                    defaultValue: 2,
+                    min: 1,
+                    max: 256,
+                    realtime: true
+                });
+
+                /**
+                 * @returns {string} xxd argument representation for col bytes config
+                 */
+                configElements.colBytes.getArg = function(d) {
+                    return "-g".concat(
+                        d === true || !_.isNumber(configElements.colBytes.value)
+                            ? configElements.colBytes.defaultValue
+                            : configElements.colBytes.value
+                    );
+                };
+
+                // "Offset" spinner
+                configElements.offset = new ui.spinner({
+                    defaultValue: 0,
+                    min: 0,
+                    realtime: true
+                });
+
+                /**
+                 * @returns {string} xxd argument representation for this config
+                 */
+                configElements.offset.getArg = function(d) {
+                    return "-s".concat(
+                        d === true || !_.isNumber(configElements.offset.value)
+                            ? configElements.offset.defaultValue
+                            : configElements.offset.value
+                    );
+                };
+
+                // configs bar
+                bar = new ui.bar({
+                    id: "configs",
+                    class: "cs50-hex-configs fakehbox aligncenter padding3",
+                    height: "40",
+                    childNodes: [
+                        new ui.label({caption : "Bytes per row: "}),
+                        configElements.rowBytes,
+                        new ui.divider({
+                            class: "cs50-hex-divider",
+                            skin: "c9-divider"
+                        }),
+                        new ui.label({caption : "Bytes per column: "}),
+                        configElements.colBytes,
+                        new ui.divider({
+                            class: "cs50-hex-divider",
+                            skin: "c9-divider"
+                        }),
+                        new ui.label({caption : "Bytes per offset: "}),
+                        configElements.offset,
+                        new ui.divider({
+                            class: "cs50-hex-divider",
+                            skin: "c9-divider"
+                        }),
+                        new ui.button({
+                            caption: "Set",
+                            class: "btn-green",
+                            onclick: update,
+                            skin: "btn-default-css3"
+                        })
+                    ]
+                });
+
+                // hex content
+                content = new ui.textarea({
+                    id: "content",
+                    border: 0,
+                    class: "cs50-hex-content",
+                    height: "100%",
+                    width: "100%"
+                });
+
+                // handle when text area is drawn
+                content.on("DOMNodeInsertedIntoDocument", function(e) {
                     // sync font size of hex representation with Ace's font size
-                    setFontSize(settings.getNumber("user/ace/@fontSize"));
-                    settings.on("user/ace/@fontSize", setFontSize);
+                    handle.updateFontSize(content.$ext, settings.getNumber("user/ace/@fontSize"));
+                    settings.on("user/ace/@fontSize", function(size) {
+                        handle.updateFontSize(content.$ext, size);
+                    });
 
                     // make content read-only
                     content.$ext.setAttribute("readonly", "true");
                 });
 
-                // get "Bytes per row" spinner
-                plugin.getElement("rowBytes", function(e) {
-                    configElements.rowBytes = e;
-
-                    /**
-                     * @returns {string} xxd argument representation for this config
-                     */
-                    configElements.rowBytes.getArg = function(d) {
-                        return "-c".concat(
-                            d === true || !_.isNumber(configElements.rowBytes.value)
-                                ? configElements.rowBytes.defaultValue
-                                : configElements.rowBytes.value
-                        );
-                    };
+                // wrapper
+                var vbox = new ui.vsplitbox({
+                    childNodes: [
+                        bar,
+                        new ui.bar({childNodes: [content]})
+                    ]
                 });
-
-                // get "Bytes per column" spinner
-                plugin.getElement("colBytes", function(e) {
-                    configElements.colBytes = e;
-
-                    /**
-                     * @returns {string} xxd argument representation for this config
-                     */
-                    configElements.colBytes.getArg = function(d) {
-                        return "-g".concat(
-                            d === true || !_.isNumber(configElements.colBytes.value)
-                                ? configElements.colBytes.defaultValue
-                                : configElements.colBytes.value
-                        );
-                    };
-                });
-
-                // get "Offset" spinner
-                plugin.getElement("offset", function(e) {
-                    configElements.offset = e;
-
-                    /**
-                     * @returns {string} xxd argument representation for this config
-                     */
-                    configElements.offset.getArg = function(d) {
-                        return "-s".concat(
-                            d === true || !_.isNumber(configElements.offset.value)
-                                ? configElements.offset.defaultValue
-                                : configElements.offset.value
-                        );
-                    };
-                });
-
-                // get "Set" button
-                plugin.getElement("btnSet", function(btnSet) {
-                    btnSet.on("click", update);
-                });
+                plugin.addElement(vbox);
+                e.tab.appendChild(vbox);
             });
 
             /**
@@ -205,7 +287,7 @@ define(function(require, exports, module) {
                 }
 
                 // render hex content
-                if (content)
+                if (content && content.$ext)
                     // using setAttribute fails (lib_apf tries to compile hex content)
                     content.$ext.value = currSession.hex.content;
             }
@@ -218,16 +300,6 @@ define(function(require, exports, module) {
                     currentSession.hex.configElements = {};
                     currentSession.hex.content = "";
                 }
-            }
-
-            /**
-             * Sets the font size of the hex representation
-             *
-             * @param {Number} size the size to set
-             */
-            function setFontSize(size) {
-                if (content)
-                    content.$ext.style.fontSize = size + "px";
             }
 
             /**
@@ -311,13 +383,8 @@ define(function(require, exports, module) {
                         tab.backgroundColor = "#303130";
                         tab.classList.add("dark");
 
-                        // change background of config bar
-                        if (bar)
-                            bar.$ext.classList.add("dark");
-
-                        // change background of hex textarea
-                        if (content)
-                            content.$ext.classList.add("dark");
+                        // update config bar and content colors
+                        handle.darken([bar, content], true);
                     }
                     // handle light themes
                     else {
@@ -325,13 +392,8 @@ define(function(require, exports, module) {
                         tab.backgroundColor = "#f1f1f1";
                         tab.classList.remove("dark");
 
-                        // change background of config bar
-                        if (bar)
-                            bar.$ext.classList.remove("dark");
-
-                        // change background of hex textarea
-                        if (content)
-                            content.$ext.classList.remove("dark");
+                        // update config bar and content colors
+                        handle.darken([bar, content], false);
                     }
                 }
 
