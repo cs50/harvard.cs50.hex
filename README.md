@@ -8,4 +8,3 @@ Hex viewer for the CS50 IDE.
 * Add progress indicator
 * Handle opening file that is already open in hex
 * Add way through Ace
-* Update on Enter

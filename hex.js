@@ -48,7 +48,7 @@ define(function(require, exports, module) {
                     }
                 });
             }
-        }
+        };
 
         // whether CSS for the editor is inserted
         var cssInserted = false;
@@ -154,6 +154,11 @@ define(function(require, exports, module) {
                             : configElements.offset.value
                     );
                 };
+
+                // udpate on Enter
+                configElements.rowBytes.on("keydown", update);
+                configElements.colBytes.on("keydown", update);
+                configElements.offset.on("keydown", update);
 
                 // configs bar
                 bar = new ui.bar({
@@ -305,8 +310,14 @@ define(function(require, exports, module) {
             /**
              * Updates and renders hex representation for current document per
              * the configs
+             *
+             * @param {object} e an object as passed to AMLElement.keydown's callback
              */
-            function update() {
+            function update(e) {
+                // if key pressed, ensure it's Enter
+                if (_.isObject(e) && e.keyCode !== 13)
+                    return;
+
                 // handle when no content has been set yet or configs have changed
                 if (_.isEmpty(currSession.hex.content) || configChanged()) {
                     // ensure only one xxd process running per editor instance
