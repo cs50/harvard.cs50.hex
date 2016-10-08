@@ -38,13 +38,11 @@ define(function(require, exports, module) {
                 elements.forEach(function(element) {
                     var c = element.getAttribute("class");
                     if (_.isString(c)) {
-                        var i = c.indexOf("dark");
-
                         // add or remove "dark" class
-                        if (dark && i === -1)
-                            element.setAttribute("class", c.concat(" dark"));
-                        else if (i > -1)
+                        if (!dark)
                             element.setAttribute("class", c.replace(/\sdark/, ""));
+                        else if (c.indexOf("dark") === -1)
+                            element.setAttribute("class", c.concat(" dark"));
                     }
                 });
             }
