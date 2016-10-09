@@ -196,6 +196,7 @@ define(function(require, exports, module) {
                     id: "content",
                     border: 0,
                     class: "cs50-hex-content",
+                    focussable: false,
                     height: "100%",
                     width: "100%"
                 });
@@ -216,7 +217,11 @@ define(function(require, exports, module) {
                 var vbox = new ui.vsplitbox({
                     childNodes: [
                         bar,
-                        new ui.bar({childNodes: [content]})
+                        new ui.bar({
+                            // save checking whether class is string
+                            class: "",
+                            childNodes: [content]
+                        })
                     ]
                 });
                 plugin.addElement(vbox);
@@ -290,9 +295,11 @@ define(function(require, exports, module) {
                 }
 
                 // render hex content
-                if (content && content.$ext)
+                if (content && content.$ext) {
                     // using setAttribute fails (lib_apf tries to compile hex content)
                     content.$ext.value = currSession.hex.content;
+                    showLoading(false);
+                }
             }
 
             /**
@@ -311,15 +318,44 @@ define(function(require, exports, module) {
             }
 
             /**
+             * Shows or hides loading spinner
+             *
+             * @param {boolean} show whether to show or hide loading spinner
+             */
+            function showLoading(show) {
+                // handle showing loading spinner
+                if (show === true && content) {
+                    // hide hex text area
+                    content.setAttribute("visible", false);
+
+                    // show loading spinner
+                    var c = content.parentNode.getAttribute("class");
+                    if (c.indexOf("cs50-hex.loading") === -1)
+                        content.parentNode.setAttribute("class", c.concat(" cs50-hex-loading"));
+                }
+                // handle hiding loading spinner
+                else {
+                    // hide loading spinner
+                    var c = content.parentNode.getAttribute("class");
+                    content.parentNode.setAttribute("class", c.replace(/\s*cs50-hex-loading/, ""));
+
+                    // show text area
+                    content.setAttribute("visible", true);
+                }
+            }
+
+            /**
              * Updates and renders hex representation for current document per
              * the configs
              *
              * @param {object} e an object as passed to AMLElement.keydown's callback
              */
             function update(e) {
+                showLoading(true);
+
                 // if key pressed, ensure it's Enter
                 if (_.isObject(e) && e.name === "keydown" && e.keyCode !== 13)
-                    return;
+                    return showLoading(false);
 
                 // handle when no content has been set yet or configs have changed
                 if (_.isEmpty(currSession.hex.content) || configChanged()) {
@@ -343,7 +379,7 @@ define(function(require, exports, module) {
                         args: ["s/^.*:\\s*//g"]
                     }, function (err, sed) {
                         if (err) {
-                            console.log(err);
+                            console.error(err);
                             reset(true);
 
                             // TODO show descriptive error message
@@ -369,7 +405,7 @@ define(function(require, exports, module) {
                             args: configs.args.concat(currSession.hex.path)
                         }, function(err, xxd) {
                             if (err) {
-                                console.log(err);
+                                console.error(err);
                                 reset(true);
                                 return showError("Error starting hex conversion process");
                             }
@@ -420,7 +456,7 @@ define(function(require, exports, module) {
                         tab.classList.add("dark");
 
                         // update config bar and content colors
-                        handle.darken([bar, content], true);
+                        handle.darken([bar, content, content.parentNode], true);
                     }
                     // handle light themes
                     else {
@@ -429,7 +465,7 @@ define(function(require, exports, module) {
                         tab.classList.remove("dark");
 
                         // update config bar and content colors
-                        handle.darken([bar, content], false);
+                        handle.darken([bar, content, content.parentNode], false);
                     }
                 }
 
@@ -504,7 +540,7 @@ define(function(require, exports, module) {
 
             // ensure content textarea is resized as pane is resized
             plugin.on("resize", function(){
-                if (content) {
+                if (content && content.getAttribute("visible") ===  true) {
                     content.setAttribute("visible", false);
                     content.setAttribute("visible", true);
                 }
