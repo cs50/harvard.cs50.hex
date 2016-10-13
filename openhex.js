@@ -36,7 +36,7 @@ define(function(require, exports, module) {
             nodes.forEach(function(node, i) {
                 var tab;
 
-                // focus tab only if last to avoid multi xxd spawns
+                // focus tab only if last to avoid sending multiple requests
                 var focus = i === last;
 
                 // ensure selection is a file

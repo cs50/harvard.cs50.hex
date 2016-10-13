@@ -1,25 +1,22 @@
 define(function(require, exports, module) {
     main.consumes = [
-        "c9", "dialog.error", "Editor", "editors", "layout", "proc",
-        "settings", "ui"
+        "dialog.error", "Editor", "editors", "layout", "settings", "vfs", "ui"
     ];
     main.provides = ["harvard.cs50.hex"];
 
     return main;
 
     function main(options, imports, register) {
-        var c9 = imports.c9;
         var Editor = imports.Editor;
         var editors = imports.editors;
         var layout = imports.layout;
-        var proc = imports.proc;
         var settings = imports.settings;
         var showError = imports["dialog.error"].show;
+        var vfs = imports.vfs;
         var ui = imports.ui;
 
         var _ = require("lodash");
         var basename = require("path").basename;
-        var join = require("path").join;
 
         // no default extensions
         var extensions = [];
@@ -36,14 +33,13 @@ define(function(require, exports, module) {
         handle.darken = function(elements, dark) {
             if (_.isArray(elements) && _.isBoolean(dark)) {
                 elements.forEach(function(element) {
-                    var c = element.getAttribute("class");
-                    if (_.isString(c)) {
-                        // add or remove "dark" class
-                        if (!dark)
-                            element.setAttribute("class", c.replace(/\sdark/, ""));
-                        else if (c.indexOf("dark") === -1)
-                            element.setAttribute("class", c.concat(" dark"));
-                    }
+                    var c = element.getAttribute("class") || "";
+
+                    // add or remove "dark" class
+                    if (!dark)
+                        element.setAttribute("class", c.replace(/\sdark/, ""));
+                    else if (c.indexOf("dark") === -1)
+                        element.setAttribute("class", c.concat(" dark"));
                 });
             }
         };
@@ -81,16 +77,12 @@ define(function(require, exports, module) {
             var plugin = new Editor("CS50", main.consumes, extensions);
 
             // active document and session
-            var currDoc = null;
             var currSession = null;
 
             // GUI elements
             var bar = null;
             var configElements = {};
             var content = null;
-
-            // whether we're currently updating
-            var updating = false;
 
             // draw editor
             plugin.on("draw", function(e) {
@@ -105,17 +97,6 @@ define(function(require, exports, module) {
                     realtime: true
                 });
 
-                /**
-                 * @returns {string} xxd argument representation for row bytes config
-                 */
-                configElements.rowBytes.getArg = function(d) {
-                    return "-c".concat(
-                        d === true || !_.isNumber(configElements.rowBytes.value)
-                            ? configElements.rowBytes.defaultValue
-                            : configElements.rowBytes.value
-                    );
-                };
-
                 // "Bytes per column" spinner
                 configElements.colBytes = new ui.spinner({
                     defaultValue: 2,
@@ -124,17 +105,6 @@ define(function(require, exports, module) {
                     realtime: true
                 });
 
-                /**
-                 * @returns {string} xxd argument representation for col bytes config
-                 */
-                configElements.colBytes.getArg = function(d) {
-                    return "-g".concat(
-                        d === true || !_.isNumber(configElements.colBytes.value)
-                            ? configElements.colBytes.defaultValue
-                            : configElements.colBytes.value
-                    );
-                };
-
                 // "Offset" spinner
                 configElements.offset = new ui.spinner({
                     defaultValue: 0,
@@ -142,21 +112,9 @@ define(function(require, exports, module) {
                     realtime: true
                 });
 
-                /**
-                 * @returns {string} xxd argument representation for this config
-                 */
-                configElements.offset.getArg = function(d) {
-                    return "-s".concat(
-                        d === true || !_.isNumber(configElements.offset.value)
-                            ? configElements.offset.defaultValue
-                            : configElements.offset.value
-                    );
-                };
-
                 // udpate on Enter
-                configElements.rowBytes.on("keydown", update);
-                configElements.colBytes.on("keydown", update);
-                configElements.offset.on("keydown", update);
+                for (var element in configElements)
+                    configElements[element].on("keydown", update);
 
                 // configs bar
                 bar = new ui.bar({
@@ -217,34 +175,33 @@ define(function(require, exports, module) {
                 var vbox = new ui.vsplitbox({
                     childNodes: [
                         bar,
-                        new ui.bar({
-                            // save checking whether class is string
-                            class: "",
-                            childNodes: [content]
-                        })
+                        new ui.bar({childNodes: [content]})
                     ]
                 });
+
                 plugin.addElement(vbox);
                 e.tab.appendChild(vbox);
             });
 
             /**
-             * Checks whether the xxd configs for the current document have changed
+             * Checks whether currently set configs are different from current document's
              *
-             * @returns {boolean} true if configs have changed or false otherwise
+             * @returns {boolean} true if configs are different or false otherwise
              */
-            function configChanged() {
-                // get cached configs
-                var elements = currSession.hex.configElements;
+            function configChanged(configs) {
+                if (!_.isObject(configs)) {
+                    showError("Error reading hex configs");
+                    return false;
+                }
 
                 // compare cached configs with the ones set per config elements
-                for (var element in elements) {
-                    if (configElements[element]) {
-                        if (configElements[element].value != elements[element])
+                for (var name in configs) {
+                    if (configElements[name]) {
+                        if (configElements[name].value !== configs[name])
                             return true;
                     }
                     else {
-                        console.warn("element " + element + " not found");
+                        console.warn("element " + name + " not found");
                     }
                 }
 
@@ -252,69 +209,98 @@ define(function(require, exports, module) {
             }
 
             /**
-             * Retrieves xxd configs and builds up its command-line args
+             * Formats the bytes of the passed session according to its configs
              *
-             * @param {boolean} [defaults] whether retrieve default configs
+             * @param {Session} a Document's session with hex configs
+             * @returns {boolean} false on error or true otherwise
+             */
+            function format(session) {
+                if (!_.isObject(session)) {
+                    showError("Error reading hex configs");
+                    return false;
+                }
+
+                if (_.isObject(session.hex) && _.isObject(session.hex.configs) && _.isString(session.hex.content)) {
+                    // handle when no content has been set yet or configs have changed
+                    if (_.isEmpty(session.hex.content) || configChanged(session.hex.configs)) {
+                        // update cached configs
+                        session.hex.configs = getConfigs(_.isEmpty(session.hex.configs));
+
+                        // reset content
+                        session.hex.content = "";
+
+                        // format
+                        var len = session.hex.bytes.length;
+                        for (var i = session.hex.configs["offset"] * 2, j = 1; i < len; i += 2) {
+                            // append current two-digit byte
+                            session.hex.content += (session.hex.bytes[i] + session.hex.bytes[i + 1]);
+
+                            // separate byte rows
+                            if (j % session.hex.configs["rowBytes"] === 0)
+                                session.hex.content += "\n";
+                            // separate byte groups per row
+                            else if (j % session.hex.configs["colBytes"] === 0) {
+                                session.hex.content += " ";
+                            }
+
+                            // update bytes-per-row count
+                            j = ++j % session.hex.configs["rowBytes"];
+                        }
+                    }
+
+                    return true;
+                }
+                else {
+                    showError("Error reading hex configs");
+                    return false;
+                }
+            }
+
+            /**
+             * @param {boolean} [defaults] whether to return default configs
+             * @returns {object} the currently set configs
              */
             function getConfigs(defaults) {
                 var configs = {};
-                configs.configElements = {};
-                configs.args = [];
 
                 // iterate over the config elements
                 for (var element in configElements) {
                     // cache configs in current session
-                    configs.configElements[element] = defaults === true
+                    configs[element] = defaults === true
                         ? configElements[element].defaultValue
                         : configElements[element].value;
-
-                    // build up xxd args
-                    configs.args.push(configElements[element].getArg(defaults));
                 }
 
                 return configs;
             }
 
-
             /**
-             * Renders the configs and the hex representation of the current document
+             * Renders the passed configs and hex representation in the editor
+             *
+             * @param {object} configs the configs to render
+             * @param {string} formattedHex the hex to render
              */
-            function render() {
-                if (!currSession)
-                    return;
+            function render(configs, formattedHex) {
+                if (!_.isObject(configs) || !_.isString(formattedHex))
+                    return showError("Error rendering hex");
 
-                // sync configs
-                var elements = currSession.hex.configElements;
-                for (var element in elements) {
+                // render configs
+                for (var name in configs) {
                     // ensure there's a config element associated with the config
-                    if (configElements[element])
-                        configElements[element].setAttribute("value", elements[element]);
+                    if (configElements[name])
+                        configElements[name].setAttribute("value", configs[name]);
                     // warn if not
                     else
-                        console.warn("element " + element + " not found");
+                        console.warn("config " + name + " not found");
                 }
 
                 // render hex content
-                if (content && content.$ext) {
-                    // using setAttribute fails (lib_apf tries to compile hex content)
-                    content.$ext.value = currSession.hex.content;
+                if (content) {
+                    content.setAttribute("value", formattedHex);
+
+                    // hide loading spinner
                     showLoading(false);
                 }
-            }
-
-            /**
-             * Resets updating state, and possibly configs and hex representation
-             *
-             * @param {boolean} [all] whether to reset configs and hex representation
-             * for current document
-             */
-            function reset(all) {
-                if (all === true && currentSession) {
-                    currentSession.hex.configElements = {};
-                    currentSession.hex.content = "";
-                }
-
-                updating = false;
             }
 
             /**
@@ -345,100 +331,27 @@ define(function(require, exports, module) {
             }
 
             /**
-             * Updates and renders hex representation for current document per
-             * the configs
+             * (Re-)formats bytes (if haven't been formatted yet or config has changed) and renders
              *
-             * @param {object} e an object as passed to AMLElement.keydown's callback
+             * @param {object} e an object as passed to ui.button.onclick
              */
             function update(e) {
-                showLoading(true);
-
                 // if key pressed, ensure it's Enter
                 if (_.isObject(e) && e.name === "keydown" && e.keyCode !== 13)
-                    return showLoading(false);
+                    return;
 
-                // handle when no content has been set yet or configs have changed
-                if (_.isEmpty(currSession.hex.content) || configChanged()) {
-                    // ensure single sed and xxd processes are running per editor at a time
-                    if (updating === true)
-                        return showError("Error starting hex conversion process");
-
-                    updating = true;
-
-                    // get config values
-                    var configs = getConfigs(_.isEmpty(currSession.hex.configElements));
-
-                    // reset content
-                    currSession.hex.content = "";
-
-                    // cache configs into session
-                    currSession.hex.configElements = configs.configElements;
-
-                    // launch sed to remove addresses
-                    proc.spawn("sed", {
-                        args: ["s/^.*:\\s*//g"]
-                    }, function (err, sed) {
-                        if (err) {
-                            console.error(err);
-                            reset(true);
-
-                            // TODO show descriptive error message
-                            return;
-                        }
-
-                        // handle sed errors
-                        sed.on("error", function(err) {
-                            console.error(err);
-                            reset(true);
-
-                            // TODO show descriptive error message
-                        });
-
-                        // handle sed exit
-                        sed.on("exit", function(code) {
-                            if (code === 0)
-                                reset();
-                        });
-
-                        // launch xxd
-                        proc.spawn("xxd", {
-                            args: configs.args.concat(currSession.hex.path)
-                        }, function(err, xxd) {
-                            if (err) {
-                                console.error(err);
-                                reset(true);
-                                return showError("Error starting hex conversion process");
-                            }
-
-                            // handle xxd errors
-                            xxd.on("error", function(err) {
-                                console.error(err);
-                                reset(true);
-                                showError("Error converting to hex");
-                            });
-
-                            // pipe xxd's stdout into sed's stdin
-                            xxd.stdout.pipe(sed.stdin);
-
-                            // buffer sed's stdout
-                            sed.stdout.on("data", function(chunk) {
-                                currSession.hex.content += chunk;
-                            });
-
-                            // render hex representation
-                            sed.stdout.on("end", render);
-                        });
-                    });
-                }
-                // handle activating another tab
-                else {
-                    render();
-                }
+                if (format(currSession))
+                    render(currSession.hex.configs, currSession.hex.content);
             }
 
             plugin.on("documentLoad", function(e) {
                 var doc = e.doc;
-                var session = doc.getSession();
+
+                // ensure path is set
+                if (!doc.tab.path)
+                    return showError("Error retrieving file path");
+
+                var session =doc.getSession();
 
                 /**
                  * Updates editor's theme
@@ -475,7 +388,6 @@ define(function(require, exports, module) {
                 // set editor's theme initially
                 setTheme({ theme: settings.get("user/general/@skin") });
 
-
                 /**
                  * Sets document's title and tooltip to filename and full path
                  * respectively
@@ -498,44 +410,61 @@ define(function(require, exports, module) {
 
                 // handle when path changes (e.g., file renamed while open)
                 doc.tab.on("setPath", setTitle, session);
+
+                // show loading spinner
+                showLoading(true);
+
+                // initialize hex object
+                session.hex = {
+                    bytes: "",
+                    configs: {},
+                    content: ""
+                };
+
+                // get the bytes of the file
+                var request = new XMLHttpRequest();
+                request.open("GET", vfs.url(doc.tab.path), true);
+                request.responseType = "arraybuffer";
+
+                // convert bytes to string
+                request.onload = function (e) {
+                    // ensure the document hasn't been unloaded
+                    if (!_.isObject(session.hex))
+                        return;
+
+                    if (request.response) {
+                        var bytes = new Uint8Array(request.response);
+
+                        for (var i = 0, len = bytes.length; i < len; i++) {
+                            // ensure every byte is two digits
+                            if (bytes[i] < 16)
+                                session.hex.bytes += "0";
+
+                            session.hex.bytes += bytes[i].toString(16);
+                        }
+
+                        // format and only render if document is still focussed
+                        if (format(session) && session === currSession)
+                            render(session.hex.configs, session.hex.content)
+                    }
+                };
+
+                request.send(null);
             });
 
             // handle when document receives focus
             plugin.on("documentActivate", function(e) {
-                // ensure path is set
-                if (!e.doc.tab.path)
-                    return;
-
-                // update current document
-                currDoc = e.doc;
-
                 // update current session
-                currSession = currDoc.getSession();
+                currSession = e.doc.getSession();
 
-                // build up configs initially
-                if (!currSession.hex) {
-                    // editor's configs for current document
-                    currSession.hex = {};
+                // reneder only if content is set
+                if (_.isObject(currSession.hex) && !_.isEmpty(currSession.hex.content))
+                    render(currSession.hex.configs, currSession.hex.content);
+            });
 
-                    // associated xxd configs
-                    currSession.hex.configElements = {};
-
-                    // hex representation
-                    currSession.hex.content = "";
-
-                    // absolute path
-                    var path = currDoc.tab.path;
-                    currSession.hex.path = path.indexOf("~") === 0
-                        ? join(c9.home, path.substring(1))
-                        : join(c9.workspaceDir, path);
-
-                    // render hex representation
-                    update();
-                }
-                else {
-                    // render hex representation
-                    render();
-                }
+            // handle when tab is closed moved between panes
+            plugin.on("documentUnload", function(e) {
+                delete e.doc.getSession().hex;
             });
 
             // ensure content textarea is resized as pane is resized
