@@ -103,7 +103,7 @@ define(function(require, exports, module) {
                     caption: "Open Hex",
                     onclick: openSelection,
                     match: "file"
-                }), 100, plugin);
+                }), 101, plugin);
             });
         });
 
