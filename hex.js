@@ -94,7 +94,6 @@ define(function(require, exports, module) {
                     defaultValue: 16,
                     min: 1,
                     max: 256,
-                    realtime: true
                 });
 
                 // "Bytes per column" spinner
@@ -102,14 +101,12 @@ define(function(require, exports, module) {
                     defaultValue: 2,
                     min: 1,
                     max: 256,
-                    realtime: true
                 });
 
                 // "Offset" spinner
                 configElements.offset = new ui.spinner({
                     defaultValue: 0,
                     min: 0,
-                    realtime: true
                 });
 
                 // udpate on Enter
@@ -197,7 +194,15 @@ define(function(require, exports, module) {
                 // compare cached configs with the ones set per config elements
                 for (var name in configs) {
                     if (configElements[name]) {
-                        if (configElements[name].value !== configs[name])
+                        // breaking abstraction for now to fix spinners'-empty-val bug
+                        // should PR the core with fix
+                        var val = parseInt(configElements[name].oInput.value);
+                        if (_.isNaN(val) || val < configElements[name].min)
+                            configElements[name].oInput.value = configElements[name].min;
+                        else if(val > configElements[name].max)
+                            configElements[name].oInput.value = configElements[name].max;
+
+                        if (configElements[name].oInput.value !== configs[name])
                             return true;
                     }
                     else {
@@ -268,7 +273,7 @@ define(function(require, exports, module) {
                     // cache configs in current session
                     configs[element] = defaults === true
                         ? configElements[element].defaultValue
-                        : configElements[element].value;
+                        : configElements[element].oInput.value;
                 }
 
                 return configs;
@@ -288,7 +293,7 @@ define(function(require, exports, module) {
                 for (var name in configs) {
                     // ensure there's a config element associated with the config
                     if (configElements[name])
-                        configElements[name].setAttribute("value", configs[name]);
+                        configElements[name].oInput.value = configs[name];
                     // warn if not
                     else
                         console.warn("config " + name + " not found");
