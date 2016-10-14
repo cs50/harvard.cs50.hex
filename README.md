@@ -3,6 +3,6 @@
 Hex viewer for the CS50 IDE.
 
 ##### TODO
-* Fix spinner bug
+* Detect when file changes while open in hex
 * Handle opening file that is already open in hex
 * Add way through Ace
