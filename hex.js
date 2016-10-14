@@ -352,6 +352,9 @@ define(function(require, exports, module) {
             plugin.on("documentLoad", function(e) {
                 var doc = e.doc;
 
+                // do not prompt to save
+                doc.meta.ignoreSave = true;
+
                 // ensure path is set
                 if (!doc.tab.path)
                     return showError("Error retrieving file path");
