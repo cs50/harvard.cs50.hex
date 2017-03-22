@@ -359,7 +359,7 @@ define(function(require, exports, module) {
                 if (!doc.tab.path)
                     return showError("Error retrieving file path");
 
-                var session =doc.getSession();
+                var session = doc.getSession();
 
                 /**
                  * Updates editor's theme
@@ -422,12 +422,22 @@ define(function(require, exports, module) {
                 // show loading spinner
                 showLoading(true);
 
-                // initialize hex object
-                session.hex = {
-                    bytes: "",
-                    configs: {},
-                    content: ""
-                };
+                // retrieve cached hex object (if any)
+                session.hex = doc.lastState.hex;
+
+                // initialize hex object if not cached previously
+                if (!session.hex) {
+                    session.hex = {
+                        bytes: "",
+                        configs: {},
+                        content: ""
+                    };
+                }
+
+                // preserve state after reload or tab reparent
+                doc.on("getState", function(e) {
+                    e.state.hex = session.hex;
+                });
 
                 // get the bytes of the file
                 var request = new XMLHttpRequest();
@@ -442,6 +452,9 @@ define(function(require, exports, module) {
 
                     if (request.response) {
                         var bytes = new Uint8Array(request.response);
+
+                        // reset bytes string
+                        session.hex.bytes = "";
 
                         for (var i = 0, len = bytes.length; i < len; i++) {
                             // ensure every byte is two digits
