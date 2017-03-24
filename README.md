@@ -3,5 +3,4 @@
 Hex viewer for the CS50 IDE.
 
 ##### TODO
-* Handle opening file that is already open in hex
-* Add way through Ace
+* Add way through Ace?

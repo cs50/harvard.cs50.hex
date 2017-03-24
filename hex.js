@@ -249,7 +249,7 @@ define(function(require, exports, module) {
                             }
 
                             // update bytes-per-row count
-                            j = ++j % session.hex.configs["rowBytes"];
+                            j = (j + 1) % session.hex.configs["rowBytes"];
                         }
                     }
 
@@ -271,7 +271,7 @@ define(function(require, exports, module) {
                 // iterate over the config elements
                 for (var element in configElements) {
                     // cache configs in current session
-                    configs[element] = defaults === true
+                    configs[element] = (defaults === true)
                         ? configElements[element].defaultValue
                         : configElements[element].oInput.value;
                 }
@@ -342,10 +342,7 @@ define(function(require, exports, module) {
              */
             function update(e) {
                 // if key pressed, ensure it's Enter
-                if (_.isObject(e) && e.name === "keydown" && e.keyCode !== 13)
-                    return;
-
-                if (format(currSession))
+                if (_.isObject(e) && e.name === "keydown" && e.keyCode === 13 && format(currSession))
                     render(currSession.hex.configs, currSession.hex.content);
             }
 
@@ -356,7 +353,7 @@ define(function(require, exports, module) {
                 doc.meta.ignoreSave = true;
 
                 // ensure path is set
-                if (!doc.tab.path)
+                if (!doc.lastState.path)
                     return showError("Error retrieving file path");
 
                 var session = doc.getSession();
@@ -404,7 +401,7 @@ define(function(require, exports, module) {
                  */
                 function setTitle(e) {
                     // get document's path
-                    var path = doc.tab.path;
+                    var path = doc.lastState.path;
 
                     // set document's title to filename
                     doc.title = basename(path);
@@ -437,11 +434,12 @@ define(function(require, exports, module) {
                 // preserve state after reload or tab reparent
                 doc.on("getState", function(e) {
                     e.state.hex = session.hex;
+                    e.state.path = doc.lastState.path;
                 });
 
                 // get the bytes of the file
                 var request = new XMLHttpRequest();
-                request.open("GET", vfs.url(doc.tab.path), true);
+                request.open("GET", vfs.url(doc.lastState.path), true);
                 request.responseType = "arraybuffer";
 
                 // convert bytes to string

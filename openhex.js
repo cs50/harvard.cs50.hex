@@ -37,38 +37,25 @@ define(function(require, exports, module) {
                 var tab;
 
                 // focus tab only if last to avoid sending multiple requests
-                var focus = i === last;
+                var focus = (i === last);
 
                 // ensure selection is a file
                 if (!node.isFolder) {
-                    // ensure no hex tab is open for file
-                    var openInHex = tabManager.getTabs().some(function(t) {
-                        if (t.path === node.path && t.editorType === "hex") {
-                            tab = t;
-                            return true;
-                        }
-
-                        return false;
-                    });
-
-                    if (openInHex)
-                        return focus && tabManager.focusTab(tab);
+                    var path = node.path;
 
                     // find tab where file is open with other editor (if any)
-                    tab = tabManager.findTab(node.path);
+                    tab = tabManager.findTab(path);
 
                     // handle when file is open with other editor
                     if (tab) {
                         // force-open file with hex in new tab
-                        // TODO fix forceNew and use it instead
+                        // tabManager doesn't allow opening > 1 tab with same path
                         return tabManager.open({
-                            pane: tab.pane,
-                            tab: tab,
+                            name: "hex-" + path,
+                            document: { path: path },
                             editorType: "hex",
-                            focus: false,
-                            document: {
-                                meta: { cloned: true }
-                            }
+                            pane: tab.pane,
+                            focus: false
                         }, function(err, tab) {
                             // handle errors
                             if (err)
@@ -86,7 +73,8 @@ define(function(require, exports, module) {
 
                     // open file with hex
                     tabManager.open({
-                        path: node.path,
+                        name: "hex-" + path,
+                        document: { path: path },
                         editorType: "hex",
                         active: focus,
                         focus: focus,
@@ -97,10 +85,10 @@ define(function(require, exports, module) {
         }
 
         plugin.on("load", function() {
-            // add "Open Hex" to file-browser's context menu
+            // add "Open hex" to file-browser's context menu
             tree.getElement("mnuCtxTree", function(mnuCtxTree) {
                 menus.addItemToMenu(mnuCtxTree, new ui.item({
-                    caption: "Open Hex",
+                    caption: "Open hex",
                     onclick: openSelection,
                     match: "file"
                 }), 101, plugin);
