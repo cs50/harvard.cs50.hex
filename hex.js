@@ -109,9 +109,14 @@ define(function(require, exports, module) {
                     min: 0,
                 });
 
+                function handleEnter(e) {
+                    if (_.isObject(e) && e.keyCode === 13)
+                        update();
+                }
+
                 // udpate on Enter
                 for (var element in configElements)
-                    configElements[element].on("keydown", update);
+                    configElements[element].on("keydown", handleEnter);
 
                 // configs bar
                 bar = new ui.bar({
@@ -336,13 +341,11 @@ define(function(require, exports, module) {
             }
 
             /**
-             * (Re-)formats bytes (if haven't been formatted yet or config has changed) and renders
-             *
-             * @param {object} e an object as passed to ui.button.onclick
+             * Formats bytes first time or when config changes.
              */
-            function update(e) {
-                // if key pressed, ensure it's Enter
-                if (_.isObject(e) && e.name === "keydown" && e.keyCode === 13 && format(currSession))
+            function update() {
+                // try formatting bytes per configs, rendering if able
+                if (format(currSession))
                     render(currSession.hex.configs, currSession.hex.content);
             }
 
