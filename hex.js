@@ -136,7 +136,7 @@ define(function(require, exports, module) {
                             class: "cs50-hex-divider",
                             skin: "c9-divider"
                         }),
-                        new ui.label({caption : "Bytes per offset: "}),
+                        new ui.label({caption : "Offset: "}),
                         configElements.offset,
                         new ui.divider({
                             class: "cs50-hex-divider",
