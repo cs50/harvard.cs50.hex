@@ -88,7 +88,7 @@ define(function(require, exports, module) {
             // add "Open hex" to file-browser's context menu
             tree.getElement("mnuCtxTree", function(mnuCtxTree) {
                 menus.addItemToMenu(mnuCtxTree, new ui.item({
-                    caption: "Open hex",
+                    caption: "Open as hexadecimal",
                     onclick: openSelection,
                     match: "file"
                 }), 101, plugin);
