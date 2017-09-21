@@ -183,6 +183,12 @@ define(function(require, exports, module) {
 
                 plugin.addElement(vbox);
                 e.tab.appendChild(vbox);
+
+                // update hex automatically when clicking plus or minus
+                for (var element in configElements) {
+                    configElements[element].$buttonMinus.addEventListener("mouseup", update);
+                    configElements[element].$buttonPlus.addEventListener("mouseup", update);
+                }
             });
 
             /**
