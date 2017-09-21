@@ -124,6 +124,12 @@ define(function(require, exports, module) {
                     class: "cs50-hex-configs fakehbox aligncenter padding3",
                     height: "40",
                     childNodes: [
+                        new ui.label({caption : "Start with byte: "}),
+                        configElements.offset,
+                        new ui.divider({
+                            class: "cs50-hex-divider",
+                            skin: "c9-divider"
+                        }),
                         new ui.label({caption : "Bytes per row: "}),
                         configElements.rowBytes,
                         new ui.divider({
@@ -132,12 +138,6 @@ define(function(require, exports, module) {
                         }),
                         new ui.label({caption : "Bytes per column: "}),
                         configElements.colBytes,
-                        new ui.divider({
-                            class: "cs50-hex-divider",
-                            skin: "c9-divider"
-                        }),
-                        new ui.label({caption : "Offset: "}),
-                        configElements.offset,
                         new ui.divider({
                             class: "cs50-hex-divider",
                             skin: "c9-divider"
