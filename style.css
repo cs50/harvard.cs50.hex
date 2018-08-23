@@ -28,11 +28,11 @@
 
 /* loading indicator */
 .cs50-hex-loading {
-    background-image: url("@{plugin-path}/loading.gif");
+    background-image: url("@{plugin-path}/images/loading.gif");
     background-position: center center;
     background-repeat: no-repeat;
     background-size: 32px;
 }
 .cs50-hex-loading.dark {
-    background-image: url("@{plugin-path}/loading-dark.gif");
+    background-image: url("@{plugin-path}/images/loading-dark.gif");
 }
