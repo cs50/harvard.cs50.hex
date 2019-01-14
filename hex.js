@@ -15,7 +15,6 @@ define(function(require, exports, module) {
         var vfs = imports.vfs;
         var ui = imports.ui;
 
-        var _ = require("lodash");
         var basename = require("path").basename;
 
         // no default extensions
@@ -31,7 +30,7 @@ define(function(require, exports, module) {
          * @param {boolean} dark whether to add or remove class "dark"
          */
         handle.darken = function(elements, dark) {
-            if (_.isArray(elements) && _.isBoolean(dark)) {
+            if (Array.isArray(elements) && typeof (dark) === "boolean") {
                 elements.forEach(function(element) {
                     var c = element.getAttribute("class") || "";
 
@@ -66,7 +65,7 @@ define(function(require, exports, module) {
          * @param {number} size the font size to set
          */
         handle.updateFontSize = function(element, size) {
-            if (_.isObject(element) && _.isObject(element.style))
+            if (typeof (element) === "object" && typeof (element.style) === "object")
                 element.style.fontSize = size + "px";
         };
 
@@ -110,7 +109,7 @@ define(function(require, exports, module) {
                 });
 
                 function handleEnter(e) {
-                    if (_.isObject(e) && e.keyCode === 13)
+                    if (typeof (e) === "object" && e.keyCode === 13)
                         update();
                 }
 
@@ -197,7 +196,7 @@ define(function(require, exports, module) {
              * @returns {boolean} true if configs are different or false otherwise
              */
             function configChanged(configs) {
-                if (!_.isObject(configs)) {
+                if (typeof (configs) !== "object") {
                     showError("Error reading hex configs");
                     return false;
                 }
@@ -208,7 +207,7 @@ define(function(require, exports, module) {
                         // breaking abstraction for now to fix spinners'-empty-val bug
                         // should PR the core with fix
                         var val = parseInt(configElements[name].oInput.value);
-                        if (_.isNaN(val) || val < configElements[name].min)
+                        if (Number.isNaN(val) || val < configElements[name].min)
                             configElements[name].oInput.value = configElements[name].min;
                         else if(val > configElements[name].max)
                             configElements[name].oInput.value = configElements[name].max;
@@ -231,16 +230,16 @@ define(function(require, exports, module) {
              * @returns {boolean} false on error or true otherwise
              */
             function format(session) {
-                if (!_.isObject(session)) {
+                if (typeof (session) !== "object") {
                     showError("Error reading hex configs");
                     return false;
                 }
 
-                if (_.isObject(session.hex) && _.isObject(session.hex.configs) && _.isString(session.hex.content)) {
+                if (typeof (session.hex) === "object" && typeof (session.hex.configs) === "object" && typeof (session.hex.content) === "string") {
                     // handle when no content has been set yet or configs have changed
-                    if (_.isEmpty(session.hex.content) || configChanged(session.hex.configs)) {
+                    if (session.hex.content === "" || configChanged(session.hex.configs)) {
                         // update cached configs
-                        session.hex.configs = getConfigs(_.isEmpty(session.hex.configs));
+                        session.hex.configs = getConfigs(!Object.keys(session.hex.configs).length);
 
                         // reset content
                         session.hex.content = "";
@@ -297,7 +296,7 @@ define(function(require, exports, module) {
              * @param {string} formattedHex the hex to render
              */
             function render(configs, formattedHex) {
-                if (!_.isObject(configs) || !_.isString(formattedHex))
+                if (typeof (configs) !== "object" || typeof (formattedHex) !== "string")
                     return showError("Error rendering hex");
 
                 // render configs
@@ -454,7 +453,7 @@ define(function(require, exports, module) {
                 // convert bytes to string
                 request.onload = function (e) {
                     // ensure the document hasn't been unloaded
-                    if (!_.isObject(session.hex))
+                    if (typeof (session.hex) !== "object")
                         return;
 
                     if (request.response) {
@@ -486,7 +485,7 @@ define(function(require, exports, module) {
                 currSession = e.doc.getSession();
 
                 // reneder only if content is set
-                if (_.isObject(currSession.hex) && !_.isEmpty(currSession.hex.content))
+                if (typeof (currSession.hex) === "object" && currSession.hex.content !== "")
                     render(currSession.hex.configs, currSession.hex.content);
             });
 
