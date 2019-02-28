@@ -447,7 +447,7 @@ define(function(require, exports, module) {
 
                 // get the bytes of the file
                 var request = new XMLHttpRequest();
-                request.open("GET", vfs.url(doc.lastState.path), true);
+                request.open("GET", `${vfs.url(doc.lastState.path)}?vfsid=${vfs.id}&auth=${vfs.authorization}`, true);
                 request.responseType = "arraybuffer";
 
                 // convert bytes to string
