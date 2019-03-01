@@ -445,38 +445,31 @@ define(function(require, exports, module) {
                     e.state.path = doc.lastState.path;
                 });
 
-                // get the bytes of the file
-                var request = new XMLHttpRequest();
-                request.open("GET", `${vfs.url(doc.lastState.path)}?vfsid=${vfs.id}&auth=${vfs.authorization}`, true);
-                request.responseType = "arraybuffer";
+                vfs.rest(doc.lastState.path, { responseType: "arraybuffer" }, (err, buffer) => {
+                    if (err)
+                        return;
 
-                // convert bytes to string
-                request.onload = function (e) {
                     // ensure the document hasn't been unloaded
                     if (typeof (session.hex) !== "object")
                         return;
 
-                    if (request.response) {
-                        var bytes = new Uint8Array(request.response);
+                    const bytes = new Uint8Array(buffer);
 
-                        // reset bytes string
-                        session.hex.bytes = "";
+                    // reset bytes string
+                    session.hex.bytes = "";
 
-                        for (var i = 0, len = bytes.length; i < len; i++) {
-                            // ensure every byte is two digits
-                            if (bytes[i] < 16)
-                                session.hex.bytes += "0";
+                    for (var i = 0, len = bytes.length; i < len; i++) {
+                        // ensure every byte is two digits
+                        if (bytes[i] < 16)
+                            session.hex.bytes += "0";
 
-                            session.hex.bytes += bytes[i].toString(16);
-                        }
-
-                        // format and only render if document is still focussed
-                        if (format(session) && session === currSession)
-                            render(session.hex.configs, session.hex.content)
+                        session.hex.bytes += bytes[i].toString(16);
                     }
-                };
 
-                request.send(null);
+                    // format and only render if document is still focussed
+                    if (format(session) && session === currSession)
+                        render(session.hex.configs, session.hex.content)
+                })
             });
 
             // handle when document receives focus
