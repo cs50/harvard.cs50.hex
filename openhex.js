@@ -7,15 +7,15 @@ define(function(require, exports, module) {
     return main;
 
     function main(options, imports, register) {
-        var c9 = imports.c9;
-        var menus = imports.menus;
-        var Plugin = imports.Plugin;
-        var showError = imports["dialog.error"];
-        var tabManager = imports.tabManager;
-        var tree = imports.tree;
-        var ui = imports.ui;
+        const c9 = imports.c9;
+        const menus = imports.menus;
+        const Plugin = imports.Plugin;
+        const showError = imports["dialog.error"];
+        const tabManager = imports.tabManager;
+        const tree = imports.tree;
+        const ui = imports.ui;
 
-        var plugin = new Plugin("CS50", main.consumes);
+        const plugin = new Plugin("CS50", main.consumes);
 
         /**
          * Opens selected files in the hex editor
